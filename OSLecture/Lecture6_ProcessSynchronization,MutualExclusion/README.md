@@ -327,3 +327,284 @@ until(false);
 - 기다려야 하는 프로세스는 block(asleep)상태가 됨
 ### Semaphore queue에 대한 wake-up 순서는 비결정적
 - Starvation problem
+***
+## Eventcount/Sequencer
+### 은행의 번호표와 비슷한 개념 - semaphore의 기아현상 해결 위한 해결책
+### Sequencer
+- 정수형 변수
+- 생성시 0으로 초기화, 감소하지 않음
+- 발생 사건들의 순서 유지
+- ticket() 연산으로만 접근 가능
+### ticket(S)
+- 현재까지 ticket() 연산이 호출 된 횟수를 반환
+- indivisible operation
+### Eventcount
+- 정수형 변수
+- 생성시 0으로 초기화, 감소하지 않음
+- 특정 사건의 발생 횟수를 기록
+- read(E), advance(E), await(E,v) 연산으로만 접근 가능
+### read(E)
+- 현재 Eventcount 값 반환
+### advance(E)
+- E <- E + 1
+- E를 기다리고 있는 프로세스를 깨움 (wake-up)
+### await(E,v)
+- V는 정수형 변수
+- if(E<v) 이면 E에 연결된 QE에 프로세스 전달(push) 및 CPU scheduler 호출
+```java
+repeat
+        ...
+v <- ticket(S);
+await(E,v);
+...CS...
+advance(E);
+...
+until(false);
+```
+***
+### N-size Producer-Consumer problem 에 sequencer 도입
+```java
+(shared variables)
+var Pticket, Cticket    : sequencer,
+    In, Out             : eventcount,
+    buffer              : array[0..N-1] of message;
+
+Producer Pi
+var t : integer;
+
+repeat
+        ...
+Create a new message M;
+t <- ticket(Pticket);       // P
+awati(In.t);                // P
+awati(Out,t-N+1);           // producer가 1명만 들어갈 수 있는 CS
+buffer[t mod N] <- M;       // producer가 1명만 들어갈 수 있는 CS
+advance(In);                // V
+...
+until(false)
+
+Consumer Cj
+var u : integer;
+
+repeat
+        ...
+u <- ticket(Cticket);       // P
+await(Out,u);               // P
+await(In,u+1);              // consumer가 1명만 들어가는 CS
+m <- buffer[u mod N];       // consumer가 1명만 들어가는 CS
+advance(Out);               // V
+Consume the message m;
+...
+until(false)
+```
+***
+### No busy waiting
+### No starvation
+- FIFO scheduling for QE
+### Semaphore 보다 더 low-level control이 가능 (순서 컨트롤)
+***
+## Language-Level solution
+### 지금까지의 solution은 Flexible하지만, 사용하기 어려운 Low-level mechanism이었다
+### High-level Mechanism
+- **Monitor**
+- Path expressions
+- Serializers
+- Critical region, conditional critical region
+### language-level constructs
+### Object-Oriented concept과 유사
+### 사용이 쉬움
+***
+## Monitor
+### 공유 데이터와 CS의 집합
+### Conditional variable
+- wait()
+- signal() operations
+***
+## Monitor의 구조
+### Entry queue (진입 큐)
+- 모니터 내의 procedure(function) 수만큼 존재
+### Mutual exclusion
+- 모니터 내에는 항상 하나의 프로세스만 진입 가능 <- language가 보장
+### Information hiding (정보 은폐)
+- 공유 데이터는 모니터 내의 프로세스만 접근 가능
+### Condition queue (조건 큐)
+- 모니터 내의 특정 이벤트를 기다리는 프로세스가 대기
+### Signaler queue (신호제공자 큐)
+- 모니터에 항상 하나의 신호제공자 큐가 존재 (전화부스)
+- signal() 명령을 실행한 프로세스가 임시 대기
+***
+### 자원 할당 문제
+- 책을 예로 들어본다.
+- 자원을 요청하는 requestR() function(대출), 자원을 반납하는 releaseR() function(반납)
+- condition queue R_Free (책을 빌릴 수 있는가?) 물어보는 대기공간
+- signaler queue가 condition queue에 있는 애를 깨우는 역할
+```java
+monitor resourceRiAllocator;
+var RilsAvailable : boolean,
+    RilsFree      : condition;
+
+procedure requestR();
+begin
+    if (not R_Available) then   // 책이 없다면
+        R_Free.wait();          // Free condition queue에서 기다려라
+    R_Available <- false;       // 책이 있다면, 빌려가고 false로 변경
+end;
+
+procedure releaseR();
+begin
+    R_Available <- true;        // 책을 반납 후 true로 변경
+    R_Free.signal();            // signal에 있는 대기 호출
+end;
+
+begin
+    RilsAvailable <- true;
+end.
+```
+***
+### 자원 할당 시나리오
+1. 자원 R 사용 가능, Monitor 안에 프로세스 없음
+2. 프로세스 Pj가 모니터 안에서 자원 R을 요청
+3. 자원 R이 Pj에게 할당 됨, 프로세스 Pk가 R 요청, Pm 또한 R 요청 (condition queue로 이동)
+4. Pj가 R 반환, R_Free.signal() 호출에 의해 Pk가 wakeup
+5. 자원 R이 Pk에게 할당 됨, Pj가 모니터 안으로 돌아와서, 남은 작업 수행
+***
+### Producer-Consumer Problem
+- procedure 2개 fillBuf() <- P, emptyBuf() <- C
+- 기다리는 공간 bufHasSpace <- P, bufHasData <- C
+- signaler queue
+- monitor 내에 in <- P, out <- C, validBufs <- 물건 수
+***
+```java
+monitor ringbuffer;
+var buffer      : array[0..N-1] of message,
+    validBufs   : 0..N,
+    in          : 0..N-1,
+    out         : 0..N-1,
+    bufHasData, bufHasSpace : condition;
+
+procedure fillBuf(data : message);
+begin
+    if(validBufs = N) then bufHasSpace.wait();
+    buffer[in] <- data;
+    validBufs <- validBufs + 1;
+    in <- (in + 1) mod N;
+    bufHasData.signal();
+end;
+
+procedure emptyBuf(var data : message);
+begin
+    if(validBufs = 0) then bufHasData.wait();
+    data <- buffer[out];
+    validBufs <- validBufs - 1;
+    out <- (out + 1) mod N;
+    bufHasSpace.signal();
+end;
+
+begin
+    validBufs <- 0;
+    in <- 0;
+    out <- 0;
+end
+```
+***
+### Reader-Writer Problem
+- reader/writer 프로세스들간의 데이터 무결성 보장 기법
+- writer 프로세스에 의한 데이터 접근 시에만 상호 배제 및 동기화 필요
+### 모니터 구성
+- 변수 2개
+  - 현재 읽기 작업을 진행하고 있는 reader 프로세스의 수
+  - 현재 writer 프로세스가 쓰기 작업을 진행 중인지 표시
+- 조건 큐 2개
+  - reader/writer 프로세스가 대기해야 할 경우에 사용
+- 프로시져 4개
+  - reader(writer) 프로세스가 읽기(쓰기) 작업을 원할 경우에 호출, 읽기(쓰기) 작업을 마쳤을 때 호출
+***
+```java
+monitor readers_and_writers;
+var numReaders      : integer,
+    writing         : boolean,
+    readingAllowed, writingAllowed : condition;
+
+procedure beginReading;
+begin
+    if(writing or queue(writingAllowed)) then readingAllowed.wait();
+    numReaders <- numReaders + 1;
+    if(queue(readingAllowed)) then readingAllowed.signal();
+end;
+
+procedure finishReading;
+begin
+    numReaders <- numReaders - 1;
+    if(numReaders = 0) then writingAllowed.signal();
+end;
+
+procedure beginWriting;
+begin
+    if(numReaders > 0 or writing) then writingAllowed.wait();
+    writing <- true;
+end;
+
+procedure finishWriting;
+begin
+    writing <- false;
+    if(queue(readingAllowed)) then readingAllowed.signal();
+    else writingAllowed.signal();
+end;
+
+begin
+    numReaders <- 0;
+    writing <- false;
+end
+```
+***
+### Dining philosopher problem
+- 5명의 철학자
+- 철학자들은 생각하는 일, 스파게티 먹는 일만 반복함
+- 공유 자원 : 스파게티, 포크
+- 스파게티를 먹기 위해서는 좌우 포크 2개 모두 들어야 함 (총 5개)
+***
+```java
+do forever
+    pickup(i);
+    eating;
+    putdown(i);
+    thinking;
+end
+```
+```java
+monitor dining_philosophers;
+var numForks        : array[0..4] of integer,
+    ready           : array[0..4] of condition,
+    i               : integer;
+
+procedure pickup(me);
+var
+    me : integer;
+begin
+    if(numForks[me] != 2) then ready[me].wait();
+    numForks[right(me)] <- numForks[right(me)] - 1;
+    numForks[left(me)] <- numForks[left(me)] - 1;
+end;
+
+procedure putdown(me);
+var
+    me : integer;
+begin
+    numForks[right(me)] <- numForks[right(me)] + 1;
+    numForks[left(me)] <- numForks[left(me)] + 1;
+    if(numForks[right(me)] = 2) then ready[right(me)].signal();
+    if(numForks[left(me)] = 2) then ready[left(me)].signal();
+end;
+
+begin
+    for i <- 0 to 4 do
+        numForks[i] <- 2;
+end
+```
+### Monitor의 장점
+- 사용이 쉽다
+- Deadlock 등 error 발생 가능성이 낮음
+### Monitor의 단점
+- 지원하는 언어에서만 사용 가능 (language 지원)
+- 컴파일러가 OS를 이해하고 있어야 함
+  - Critical section 접근을 위한 코드 생성
