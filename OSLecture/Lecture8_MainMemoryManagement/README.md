@@ -1,0 +1,107 @@
+# 1. 메모리(주기억장치) 관리
+***
+### 메모리의 종류
+1. 레지스터
+2. 캐시
+3. 메인 메모리
+4. 보조기억장치
+- I/O bottleneck을 해소하기 위한 계층구조
+- 1,2번은 HW가 관리하며, 3,4번은 SW가 관리한다.
+***
+### 메모리 계층구조
+- Block
+  - 보조기억장치와 주기억장치 사이의 데이터 전송 단위
+  - Size : 1 ~ 4 KB
+- Word
+  - 주기억장치와 레지스터 사이의 데이터 전송 단위 (컴퓨터 운영체제 32비트, 64비트와 유사)
+  - Size : 16 ~ 64 bits
+***
+### Address Binding
+- 프로그램의 논리 주소를 실제 메모리의 물리 주소로 매핑하는 작업
+- Binding 시점에 따른 구분
+  - Compile time binding
+  - Load time binding
+  - Run time binding
+- 소스코드 -> 컴파일러 -> 객체모듈 -> 링커 -> 로드모듈 -> 로더 -> 메모리
+***
+### Compile time binding
+- 프로세스가 메모리에 적재될 위치를 컴파일러가 알 수 있는 경우
+  - 위치가 변하지 않음
+- 프로그램 전체가 메모리에 올라가야 함
+### Load time binding
+- 메모리 적재 위치를 컴파일 시점에서 모르면, 대체 가능한 상대 주소를 생성
+- 적재 시점(Load time)에 시작 주소를 반영하여 사용자 코드 상의 주소를 재설정
+- 프로그램 전체가 메모리에 올라가야 함
+### Run-time binding
+- Address binding을 수행시간까지 연기
+  - 프로세스가 수행 도중 다른 메모리 위치로 이동할 수 있음
+- HW의 도움이 필요
+  - MMU : Memory Management Unit
+- 대부분의 OS가 사용
+***
+### Dynamic Loading
+- 모든 루틴을 교체 가능한 형태로 디스크에 저장
+- 실제 호출 전까지는 루틴을 적재하지 않음
+  - 메인 프로그램만 메모리에 적재하여 수행
+  - 루틴의 호출 시점에 address binding 수행
+- 장점
+  - 메모리 공간의 효율적 사용
+***
+### Swapping
+- 프로세서 할당이 끝나고 수행 완료 된 프로세스는 swap-device로 보내고 (Swap-out)
+- 새롭게 시작하는 프로세스는 메모리에 적재 (Swap-in)
+***
+### Continuous Memory Allocation
+- 프로세스(context)를 하나의 연속된 메모리 공간에 할당하는 정책
+  - 프로그램, 데이터, 스택 등
+- 메모리 구성 정책
+  - 메모리에 동시에 올라갈 수 있는 프로세스 수
+    - multiprogramming degree
+  - 각 프로세스에게 할당되는 메모리 공간 크기
+  - 메모리 분할 방법
+### Uni-programming
+- multiprogramming degree =1
+- 하나의 프로세스만 메모리 상에 존재, 가장 간단한 메모리 관리 기법
+- 문제점
+  - 프로그램의 크기 > 메모리 크기 인 경우
+- 해결법
+  - Overlay structure
+    - 메모리에 현재 필요한 영역만 적재
+    - 사용자가 프로그램의 흐름 및 자료구조를 모두 알고있어야 함
+- 문제점
+  - 커널 보호
+- 해결방법
+  - 경계 레지스터 (boundary register) 사용
+- 문제점
+  - Low system resource utilization
+  - Low system performance
+### multi-programming
+  - Fixed(static) partition multi-programming (FPM)
+    - 고정 분할
+  - Variable(dynamic) partition multi-programming (VPM)
+    - 가변 분할
+***
+### Fixed Partition Multiprogramming
+- 메모리 공간을 고정된 크기로 분할
+  - 미리 분할되어 있음
+- 각 프로세스는 하나의 partition(분할)에 적재
+  - Process : Partition = 1 : 1
+- Partition의 수 = K
+  - Multiprogramming degree = K
+- 커널 및 사용자 영역 보호
+- 요약
+  - 고정된 크기로 메모리 미리 분할
+  - 메모리 관리가 간편함
+    - low overhead
+  - 시스템 자원이 낭비될 수 있음
+  - Internal/external fragmentation
+***
+### Fragmentation (단편화)
+- Internal fragmentation
+  - 내부 단편화
+  - Partition 크기 > Process 크기
+    - 메모리가 낭비됨
+- External fragmentation
+  - 외부 단편화
+  - (남은 메모리 크기 > Process 크기)지만, 연속된 공간이 아님
+    - 메모리가 낭비됨
